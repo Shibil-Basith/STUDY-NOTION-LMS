@@ -83,8 +83,7 @@ jobs:
         # 1. Ensure Project Exists
         oc new-project ${{ env.OPENSHIFT_NAMESPACE }} || oc project ${{ env.OPENSHIFT_NAMESPACE }}
         
-        # 2. Apply GreenOps Limits (Carbon Budget)
-        oc apply -f openshift/greenops-limits.yaml
+        
         
         # 3. Apply Core Services (Backend & Frontend)
         oc apply -f openshift/backend.yaml
