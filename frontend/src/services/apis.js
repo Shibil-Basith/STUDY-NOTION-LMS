@@ -1,4 +1,5 @@
-const BASE_URL = "https://studynotion-backend-route-shibilbasithcp-dev.apps.rm2.thpm.p1.openshiftapps.com/";
+// ✅ UPDATED: Correct Backend URL with '/api/v1' and no trailing slash
+const BASE_URL = "https://studynotion-backend-route-shibilbasithcp-dev.apps.rm2.thpm.p1.openshiftapps.com/api/v1";
 
 // AUTH ENDPOINTS
 export const endpoints = {
@@ -57,6 +58,7 @@ export const categories = {
 export const catalogData = {
   CATALOGPAGEDATA_API: BASE_URL + "/course/getCategoryPageDetails",
 }
+
 // CONTACT-US API
 export const contactusEndpoint = {
   CONTACT_US_API: BASE_URL + "/reach/contact",
