@@ -211,7 +211,9 @@ exports.login = async (req, res) => {
             // cookie
             const cookieOptions = {
                 expires: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000), // 3 days
-                httpOnly: true
+                httpOnly: true,
+                secure: true,        // REQUIRED: Sends cookie only over HTTPS
+                sameSite: "none"     // REQUIRED: Allows Cross-Origin cookies
             }
 
             res.cookie('token', token, cookieOptions).status(200).json({

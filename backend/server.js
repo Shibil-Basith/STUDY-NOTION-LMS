@@ -23,8 +23,9 @@ app.use(express.json()); // to parse json body
 app.use(cookieParser());
 app.use(
     cors({
-        // origin: 'http://localhost:5173', // frontend link
-        origin: "*",
+        // Replace this string with the URL you copied from 'oc get routes'
+        // ⚠️ IMPORTANT: No trailing slash at the end!
+        origin: "https://studynotion-frontend-route-shibilbasithcp-dev.apps.rm2.thpm.p1.openshiftapps.com",
         credentials: true
     })
 );
