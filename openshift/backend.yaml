@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: studynotion-backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: studynotion-backend
+  template:
+    metadata:
+      labels:
+        app: studynotion-backend
+    spec:
+      containers:
+      - name: backend
+        image: your-dockerhub-username/studynotion-backend:latest
+        ports:
+        - containerPort: 4000
+        env:
+        - name: MONGODB_URL
+          valueFrom:
+            secretKeyRef:
+              name: backend-secrets
+              key: mongodb-url
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-service
+spec:
+  selector:
+    app: studynotion-backend
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 4000
+  type: ClusterIP

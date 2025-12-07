@@ -1,0 +1,110 @@
+name: OpenShift Full Deployment
+
+on:
+  push:
+    branches: [ "main" ]
+
+env:
+  # Replace with your Docker Hub username
+  REGISTRY_USER: ${{ secrets.DOCKERHUB_USERNAME }}
+  # Image Names
+  IMAGE_BACKEND: studynotion-backend
+  IMAGE_FRONTEND: studynotion-frontend
+  IMAGE_AIOPS: studynotion-aiops
+  # OpenShift Project Name (Namespace)
+  OPENSHIFT_NAMESPACE: studynotion-project
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+    # ----------------------------------------------------------------
+    # 1. SETUP & AUTHENTICATION
+    # ----------------------------------------------------------------
+    - name: Checkout Source Code
+      uses: actions/checkout@v3
+
+    - name: Log in to Docker Hub
+      uses: docker/login-action@v2
+      with:
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
+
+    # ----------------------------------------------------------------
+    # 2. BUILD & PUSH IMAGES
+    # ----------------------------------------------------------------
+    - name: Build & Push Backend
+      uses: docker/build-push-action@v4
+      with:
+        context: ./backend
+        push: true
+        tags: ${{ env.REGISTRY_USER }}/${{ env.IMAGE_BACKEND }}:latest
+
+    - name: Build & Push Frontend
+      uses: docker/build-push-action@v4
+      with:
+        context: ./frontend
+        push: true
+        tags: ${{ env.REGISTRY_USER }}/${{ env.IMAGE_FRONTEND }}:latest
+
+    - name: Build & Push AIOps Agent
+      uses: docker/build-push-action@v4
+      with:
+        context: ./aiops
+        push: true
+        tags: ${{ env.REGISTRY_USER }}/${{ env.IMAGE_AIOPS }}:latest
+
+    # ----------------------------------------------------------------
+    # 3. CONNECT TO OPENSHIFT
+    # ----------------------------------------------------------------
+    - name: Install OpenShift CLI (oc)
+      uses: redhat-actions/oc-installer@v1
+      with:
+        oc_version: 'latest'
+
+    - name: Log in to OpenShift
+      uses: redhat-actions/oc-login@v1
+      with:
+        openshift_server_url: ${{ secrets.OPENSHIFT_SERVER }}
+        openshift_token: ${{ secrets.OPENSHIFT_TOKEN }}
+        insecure_skip_tls_verify: true
+        namespace: ${{ env.OPENSHIFT_NAMESPACE }}
+
+    # ----------------------------------------------------------------
+    # 4. DEPLOY TO CLUSTER
+    # ----------------------------------------------------------------
+    - name: Apply Configurations
+      run: |
+        echo "🚀 Starting Deployment to OpenShift..."
+        
+        # 1. Ensure Project Exists
+        oc new-project ${{ env.OPENSHIFT_NAMESPACE }} || oc project ${{ env.OPENSHIFT_NAMESPACE }}
+        
+        # 2. Apply GreenOps Limits (Carbon Budget)
+        oc apply -f openshift/greenops-limits.yaml
+        
+        # 3. Apply Core Services (Backend & Frontend)
+        oc apply -f openshift/backend.yaml
+        oc apply -f openshift/frontend.yaml
+        
+        # 4. Apply AIOps Monitoring
+        oc apply -f openshift/aiops.yaml
+        
+        # 5. Apply Autoscaling (HPA)
+        oc apply -f openshift/hpa.yaml
+
+    - name: Force Rollout (Update Images)
+      run: |
+        echo "🔄 Restarting pods to pull new images..."
+        oc rollout restart deployment/studynotion-backend
+        oc rollout restart deployment/studynotion-frontend
+        oc rollout restart deployment/studynotion-aiops
+        
+    - name: Verification
+      run: |
+        echo "✅ Deployment Submitted. Checking status..."
+        oc get pods
+        oc get routes
