@@ -14,15 +14,26 @@ spec:
     spec:
       containers:
       - name: backend
-        image: your-dockerhub-username/studynotion-backend:latest
+        # ⚠️ IMPORTANT: Replace 'your-dockerhub-username' with your actual Docker ID
+        # Example: image: boddepallyvenkatesh06/studynotion-backend:latest
+        image: shibilbasithcp/studynotion-backend:latest
+        
         ports:
         - containerPort: 4000
-        env:
-        - name: MONGODB_URL
-          valueFrom:
-            secretKeyRef:
-              name: backend-secrets
-              key: mongodb-url
+        
+        # ---------------------------------------------------------
+        # SECRETS CONFIGURATION
+        # This loads the entire secret we created via CLI
+        # (oc create secret generic backend-secrets --from-env-file=...)
+        # ---------------------------------------------------------
+        envFrom:
+        - secretRef:
+            name: backend-secrets
+
+        # ---------------------------------------------------------
+        # GREENOPS CONFIGURATION
+        # Strict limits to prevent energy waste
+        # ---------------------------------------------------------
         resources:
           requests:
             memory: "128Mi"
@@ -30,6 +41,7 @@ spec:
           limits:
             memory: "512Mi"
             cpu: "500m"
+
 ---
 apiVersion: v1
 kind: Service

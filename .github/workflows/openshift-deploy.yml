@@ -12,7 +12,7 @@ env:
   IMAGE_FRONTEND: studynotion-frontend
   IMAGE_AIOPS: studynotion-aiops
   # OpenShift Project Name (Namespace)
-  OPENSHIFT_NAMESPACE: studynotion-project
+  OPENSHIFT_NAMESPACE: shibilbasithcp-dev
 
 jobs:
   build-and-deploy:
