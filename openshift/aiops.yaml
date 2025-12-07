@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
       - name: aiops-monitor
-        image: your-dockerhub-username/studynotion-aiops:latest
+        image: shibilbasithcp/studynotion-aiops:latest
         resources:
           requests:
             memory: "64Mi"

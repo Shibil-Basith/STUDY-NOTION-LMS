@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
       - name: frontend
-        image: your-dockerhub-username/studynotion-frontend:latest
+        image: shibilbasithcp/studynotion-frontend:latest
         ports:
         - containerPort: 8080
         resources:
