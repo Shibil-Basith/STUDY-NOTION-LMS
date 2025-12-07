@@ -14,10 +14,13 @@ spec:
     spec:
       containers:
       - name: frontend
+        # ✅ CORRECTED: Using your actual Docker Hub ID
         image: shibilbasithcp/studynotion-frontend:latest
+        
         ports:
         - containerPort: 8080
         resources:
+          # GreenOps: Efficient resource usage
           requests:
             memory: "64Mi"
             cpu: "50m"
@@ -38,7 +41,7 @@ spec:
       targetPort: 8080
   type: ClusterIP
 ---
-# OPENSHIFT ROUTE (Replaces Ingress)
+# OPENSHIFT ROUTE (Exposes your app to the internet)
 apiVersion: route.openshift.io/v1
 kind: Route
 metadata:
