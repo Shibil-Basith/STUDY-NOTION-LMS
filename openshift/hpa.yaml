@@ -1,0 +1,12 @@
+apiVersion: autoscaling/v1
+kind: HorizontalPodAutoscaler
+metadata:
+  name: studynotion-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: studynotion-backend
+  minReplicas: 1   # Scale down to 1 pod when idle (GreenOps)
+  maxReplicas: 5   # Max limit to prevent runaway energy usage
+  targetCPUUtilizationPercentage: 75

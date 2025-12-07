@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: greenops-carbon-budget
+spec:
+  hard:
+    # Limit the total project memory to 2GB (prevents bloat)
+    requests.memory: 2Gi
+    limits.memory: 4Gi
+    # Limit total CPU cores
+    requests.cpu: "1"
+    limits.cpu: "2"
+    # Limit number of active pods
+    pods: "10"

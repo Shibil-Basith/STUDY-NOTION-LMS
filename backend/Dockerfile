@@ -1,3 +1,4 @@
+# backend/Dockerfile
 FROM node:18-alpine
 
 # Create app directory and set permissions for 'node' user
@@ -16,8 +17,6 @@ RUN npm ci --only=production
 # Copy application code
 COPY --chown=node:node . .
 
-# Expose the backend port
 EXPOSE 4000
 
-# Start the server
 CMD ["npm", "start"]
