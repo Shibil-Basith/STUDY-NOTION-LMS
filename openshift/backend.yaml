@@ -14,26 +14,13 @@ spec:
     spec:
       containers:
       - name: backend
-        # ⚠️ IMPORTANT: Replace 'your-dockerhub-username' with your actual Docker ID
-        # Example: image: boddepallyvenkatesh06/studynotion-backend:latest
+        # Make sure this is your correct username!
         image: shibilbasithcp/studynotion-backend:latest
-        
         ports:
         - containerPort: 4000
-        
-        # ---------------------------------------------------------
-        # SECRETS CONFIGURATION
-        # This loads the entire secret we created via CLI
-        # (oc create secret generic backend-secrets --from-env-file=...)
-        # ---------------------------------------------------------
         envFrom:
         - secretRef:
             name: backend-secrets
-
-        # ---------------------------------------------------------
-        # GREENOPS CONFIGURATION
-        # Strict limits to prevent energy waste
-        # ---------------------------------------------------------
         resources:
           requests:
             memory: "128Mi"
@@ -41,7 +28,6 @@ spec:
           limits:
             memory: "512Mi"
             cpu: "500m"
-
 ---
 apiVersion: v1
 kind: Service
@@ -55,3 +41,19 @@ spec:
       port: 80
       targetPort: 4000
   type: ClusterIP
+---
+# ------------------------------------------------------
+# NEW: BACKEND ROUTE (Exposes API to the Internet)
+# ------------------------------------------------------
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: studynotion-backend-route
+spec:
+  to:
+    kind: Service
+    name: backend-service
+  port:
+    targetPort: 4000
+  tls:
+    termination: edge
