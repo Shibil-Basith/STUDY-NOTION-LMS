@@ -1,4 +1,4 @@
-const BASE_URL = import.meta.env.VITE_APP_BASE_URL;
+const BASE_URL = "https://studynotion-backend-route-shibilbasithcp-dev.apps.rm2.thpm.p1.openshiftapps.com/";
 
 // AUTH ENDPOINTS
 export const endpoints = {
