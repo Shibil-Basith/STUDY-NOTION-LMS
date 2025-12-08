@@ -5,7 +5,7 @@ from sklearn.ensemble import IsolationForest
 from datetime import datetime
 
 # Configuration
-TARGET_URL = "http://backend-service:4000"  # Internal K8s DNS
+TARGET_URL = "http://backend-service:80"  # Internal K8s DNS
 POLL_INTERVAL = 5  # Seconds
 HISTORY_SIZE = 50  # Data points to keep for training
 
