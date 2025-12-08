@@ -1,265 +1,313 @@
 
-<img src='https://github.com/Aniruddha-Gade/Study-Notion-EdTech__MERN-Stack/blob/main/frontend/src/assets/Logo/Logo-Full-Light.png' />
+# StudyNotion LMS - Cloud & DevOps Architecture Documentation
 
-# Project Description 📝
-StudyNotion is a fully functional ed-tech platform that enables users to create, consume, and rate educational content. <br/>
-The platform is built using the **MERN stack**, which includes ReactJS, NodeJS, MongoDB, and ExpressJS.
+**Project Name:** StudyNotion LMS
+**Architecture:** Cloud-Native, GreenOps Compliant, AI-Monitored
+**Deployment Platform:** Red Hat OpenShift
+**Database:** MongoDB Atlas (Cloud)
 
-<h2>Live link 🌍📡 - [  https://study-notion-mern-stack.netlify.app/  ]</h2>
-<hr/>
+-----
 
+## **1. Executive Summary**
 
-<img width='100%' src='https://github.com/Aniruddha-Gade/Study-Notion-EdTech__MERN-Stack/blob/main/screenshots/home1.png' />
+This document details the architectural transformation of the StudyNotion Learning Management System. The project was migrated from a local monolithic setup to a distributed, cloud-native architecture. Key enhancements include containerization via Docker, orchestration via OpenShift, automated CI/CD pipelines, sustainable "GreenOps" resource management, and AI-driven operational monitoring ("AIOps").
 
+-----
 
+## **2. Database Migration (MongoDB Atlas)**
 
-## Table of Contents
+**Objective:** Move data storage from local development (`localhost`) to a managed cloud cluster to support a distributed application accessible from the public internet.
 
+### **Configuration**
 
-| Section                 | Description                                  |
-|-------------------------|----------------------------------------------|
-| [StudyNotion Aim](#studynotion-aim-)        | 📚 Overview of StudyNotion's goals            |
-| [Tech Stack](#tech-stack-)             | 💻🔧 Technologies used in the project         |
-| [System Architecture](#system-architecture-)    | 🏰 Overview of the system architecture      |
-| [Architecture Diagram](#architecture-diagram-)   | 🏗️ Diagram illustrating the architecture   |
-| [Schema](#schema-)                  | 🗂 Explanation of data schemas used          |
-| [React Hooks](#react-hooks-)            | 🎣 Overview of React Hooks utilized          |
-| [React Library](#react-library-)         | ⚛️📚 Overview of React Libraries used        |
-| [Screen Preview](#screen-preview-)         | 🖥️ Screen Preview        |
+  * **Provider:** MongoDB Atlas (Cloud)
+  * **Cluster Strategy:** Shared Cluster with Logical Partitioning.
+  * **Connection String Logic:** We appended `/StudyNotion` to the connection string. This instructs MongoDB to create a specific, isolated database for this application, preventing data collisions with other projects.
 
+### **Code Implementation**
 
+**File:** `backend/config/database.js`
 
+```javascript
+const mongoose = require("mongoose");
+require("dotenv").config();
 
+exports.connectDB = () => {
+    // connect using the Environment Variable injected by OpenShift Secrets
+    mongoose.connect(process.env.MONGODB_URL, {
+        useNewUrlParser: true,
+        useUnifiedTopology: true,
+    })
+    .then(() => console.log("✅ Database connected successfully"))
+    .catch((error) => {
+        console.log("❌ DB Connection Failed");
+        process.exit(1); // Critical failure: Stop server if DB is unreachable
+    });
+};
+```
 
+-----
 
-## StudyNotion Aim 📚 
-<br/>
-1️⃣ A seamless and interactive learning experience for students, making education more accessible and engaging.<br/>
-2️⃣ A platform for instructors to showcase their expertise and connect with learners across the globe.<br/>
+## **3. Backend Security & Cross-Domain Configuration**
 
-<br/>
-<br/>
-<img width='100%' src='https://github.com/Aniruddha-Gade/Study-Notion-EdTech__MERN-Stack/blob/main/screenshots/Tech%20stack%20logo/gif.gif' />
+**Objective:** Enable secure communication between the Frontend (hosted on one domain) and the Backend (hosted on a different domain) over HTTPS.
 
+### **CORS (Cross-Origin Resource Sharing)**
 
-## Tech Stack 💻🔧 
+**File:** `backend/server.js`
+Standard browser security blocks requests between different domains. We configured the backend to explicitly trust the OpenShift Frontend Route.
 
-## Frontend 🎨 : 
-<code title="React.js"><img height="40" src="https://github.com/Aniruddha-Gade/Study-Notion-EdTech__MERN-Stack/blob/main/screenshots/Tech%20stack%20logo/react%20ogo.png"></code>
-<code title="Vite"><img height="40" src="https://github.com/Aniruddha-Gade/Study-Notion-EdTech__MERN-Stack/blob/main/screenshots/Tech%20stack%20logo/Vitejs-logo.png"></code>
-<code title="Redux.js"><img height="35" src="https://github.com/Aniruddha-Gade/Study-Notion-EdTech__MERN-Stack/blob/main/screenshots/Tech%20stack%20logo/redux-logo.png"></code>
-<code title="css"><img height="40" src="https://github.com/Aniruddha-Gade/Study-Notion-EdTech__MERN-Stack/blob/main/screenshots/Tech%20stack%20logo/css%20logo.png"></code>
-<code title="Tailwind css"><img height="35" src="https://github.com/Aniruddha-Gade/Study-Notion-EdTech__MERN-Stack/blob/main/screenshots/Tech%20stack%20logo/tailwind%20css%20logo.png"></code>
+```javascript
+const cors = require("cors");
+// ...
+app.use(
+    cors({
+        // ⚠️ CRITICAL: We strictly allow only the specific Frontend URL.
+        // Wildcards ("*") are insecure and block cookies.
+        origin: "https://studynotion-frontend-route-shibilbasithcp-dev.apps.rm2.thpm.p1.openshiftapps.com",
+        credentials: true // Allows session cookies (JWT) to be passed
+    })
+);
+```
 
+### **Secure Cookie Management**
 
-## Backend ⚙️ :
-<code title="Nodejs"><img height="50" src="https://github.com/Aniruddha-Gade/Study-Notion-EdTech__MERN-Stack/blob/main/screenshots/Tech%20stack%20logo/nodejs-logo.png"></code>
-<code title="Express"><img height="70" src="https://github.com/Aniruddha-Gade/Study-Notion-EdTech__MERN-Stack/blob/main/screenshots/Tech%20stack%20logo/express%20logo.png"></code>
+**File:** `backend/controllers/auth.js`
+Since OpenShift enforces HTTPS, standard HTTP cookies are blocked by modern browsers. We updated the cookie settings during the Login controller execution.
 
+```javascript
+const cookieOptions = {
+    expires: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
+    httpOnly: true,     // Security: Prevents JavaScript (XSS) from reading the token
+    secure: true,       // REQUIRED: Only sends cookie over HTTPS
+    sameSite: "none",   // REQUIRED: Allows cookie to travel between Frontend domain and Backend domain
+}
+```
 
-## Database 🛢️ :
-<code title="Mongodb"><img height="40" src="https://github.com/Aniruddha-Gade/Study-Notion-EdTech__MERN-Stack/blob/main/screenshots/Tech%20stack%20logo/mongodb%20logo.png"></code>
+-----
 
-## Cloudinary Integration ☁️
-<code title="Mongodb"><img height="40" src="https://github.com/Aniruddha-Gade/Study-Notion-EdTech__MERN-Stack/blob/main/screenshots/Tech%20stack%20logo/cloudinary-logo.jpg"></code>
+## **4. Containerization Strategy (Docker)**
 
-<hr/>
+**Objective:** Package the application into lightweight, portable, and secure images.
 
+### **A. Backend Dockerfile**
 
+**File:** `backend/Dockerfile`
+**Key Feature:** Security & Size.
 
+```dockerfile
+# 1. Base Image: Use Alpine Linux (GreenOps: Reduces image size by ~600MB)
+FROM node:18-alpine
 
-## System Architecture 🏰
-<br/>
-☝ The StudyNotion ed-tech platform consists of three main components:  <br/>
-The front end, the back end, and the database. The platform follows a client-server architecture, with the front end serving as the client and the back end and database serving as the server.
-
-🎨 Front-end  <br/>
-The front end of the platform is built using ReactJS, which is a popular JavaScript library for building user interfaces. ReactJS allows for the creation of dynamic and responsive user interfaces also **Loading Skeleton**, which are critical for providing an engaging learning experience to the students. The front end communicates with the back end using RESTful API calls.
-
-⚙️ Back-end  <br/>
-The back end of the platform is built using NodeJS and ExpressJS, which are popular frameworks for building scalable and robust server-side applications. The back end provides APIs for the front end to consume, which include functionalities such as user authentication, course creation, and course consumption. The back end also handles the logic for processing and storing the course content and user data.
-
-🛢️ Database  <br/>
-The database for the platform is built using MongoDB, which is a NoSQL database that provides a flexible and scalable data storage solution. MongoDB allows for the storage of unstructured and semi-structured data, which is useful for storing course content such as videos, images, and PDFs. The database stores the course content, user data, and other relevant information related to the platform.
-
-
-
-## Architecture Diagram 🏗️
-<br/>
-Here is a high-level diagram that illustrates the architecture of the StudyNotion ed-tech platform:
-<img width='60%' src='https://github.com/Aniruddha-Gade/Study-Notion-EdTech__MERN-Stack/blob/main/screenshots/Architecture%20Diagram.png' />
-
-
-<hr/>
-
-#### The front end of StudyNotion has all the necessary pages that an ed-tech platform should have. Some of these pages are: 
-
-For Students:
-- **Homepage 🏠:** A brief introduction to the platform with links to the course list and user details and random background.
-- **Course List 📚:** A list of all the courses available on the platform, along with their descriptions and ratings.
-- **Wishlist 💡:** Displays all the courses that a student has added to their wishlist.
-- **Cart Checkout 🛒 :** Allows the user to complete course purchases.
-- **Course Content 🎓:** Presents the course content for a particular course, including videos and related material.
-- **User Details 👤:** Provides details about the student's account, including their name, email, and other relevant information.
-- **User Edit Details ✏️:** Allows students to edit their account details.
-
-For Instructors:
-- **Dashboard 📊:** Offers an overview of the instructor's courses, along with ratings and feedback for each course.
-- **Insights 📈:** Provides detailed insights into the instructor's courses, including the number of views, clicks, and other relevant metrics.
-- **Course Management Pages 🛠️:** Enables instructors to create, update, and delete courses, as well as manage course content and pricing.
-- **View and Edit Profile Details 👀:** Allows instructors to view and edit their account details.
-
-
-
-### Back-end ⚙️
-
-The back-end of the platform is built using NodeJS and ExpressJS, providing APIs for the front-end to consume. These APIs include functionalities such as user authentication, course creation, and course consumption. The back-end also handles the logic for processing and storing the course content and user data.
-
-#### Back-end Features
-
-- **User Authentication and Authorization 🔐:** Students and instructors can sign up and log in to the platform using their email addresses and passwords. The platform also supports OTP (One-Time Password) verification and forgot password functionality for added security.
-- **Course Management 🛠️:** Instructors can create, read, update, and delete courses, as well as manage course content and media. Students can view and rate courses.
-- **Payment Integration 💳:** Students will purchase and enroll in courses by completing the checkout flow, followed by Razorpay integration for payment handling.
-- **Cloud-based Media Management ☁️ :** StudyNotion uses Cloudinary, a cloud-based media management service, to store and manage all media content, including images, videos, and documents.
-- **Markdown Formatting ✍️:** Course content in document format is stored in Markdown format, allowing for easier display and rendering on the front-end.
-
-
-
-#### Data Models and Database Schema
-
-The back-end of StudyNotion uses several data models and database schemas to manage data, including:
-
-- **Student Schema 🧑‍🎓:** Includes fields such as name, email, password, and course details for each student.
-- **Instructor Schema 👩‍🏫:** Includes fields such as name, email, password, and course details for each instructor.
-- **Course Schema 📚:** Includes fields such as course name, description, instructor details, and media content.
-
-
-### Database 🛢️
-The database for the platform is built using MongoDB, a NoSQL database that provides a flexible and scalable data storage solution. MongoDB allows for the storage of unstructured and semi-structured data. The database stores the course content, user data, and other relevant information related to the platform.
-
-## Schema 📋
-<img width='100%' src='https://github.com/Aniruddha-Gade/Study-Notion-EdTech__MERN-Stack/blob/main/screenshots/Schema.png' />
-
-<hr/>
-
-
-## React Hooks 🎣
-
-Utilized several React hooks for efficient state management and dynamic behavior:
-
-- `useState`
-- `useEffect`
-- `useDispatch`
-- `useParams`
-- `useSelector`
-- `useLocation`
-- `useNavigate`
-- `useRef`
-- `useForm`
-- `useDropzone`
-- `Custom-Hook`
-
-<br/>
-
-## 📚 **React Library**:
-
-- 🚀 **Lazy Loading**: Enhance performance by lazily loading images using the react-lazy-load-image library.
-- 📊 **Chart.js:**  Versatile charting library for creating interactive and visually appealing charts.
-- 🎭**Framer Motion:**  Animation library for React, providing smooth and expressive motion.
-- 📁 **React Dropzone:**  Drag-and-drop file uploader for React applications.
-- 🍞 **React Hot Toast:**  Elegant and customizable toast notifications for React applications.
-- 🔢 **React OTP Input:**  Input component for one-time password entry in React forms.
-- 📊 **React Super Responsive Table:**  Highly responsive and feature-rich table component for React.
-- 🔄 **Swiper:**  Modern touch slider for mobile and desktop browsers.
-- 🖋️ **React Type Animation:**  Simple and configurable typing animation component for React.
-- 🎥 **Video React:**  React-based video player for building rich multimedia experiences in web applications.
-
-
-
-##  🖥️ Screen Preview :
-
-# Random Home Page Background 🏠 
-<img width='100%' src='https://github.com/Aniruddha-Gade/Study-Notion-EdTech__MERN-Stack/blob/main/screenshots/home3.png' />
-<img width='100%' src='https://github.com/Aniruddha-Gade/Study-Notion-EdTech__MERN-Stack/blob/main/screenshots/home4.png' />
-
-# About Page
-<img width='100%' src='https://github.com/Aniruddha-Gade/Study-Notion-EdTech__MERN-Stack/blob/main/screenshots/about.png' />
-
-# Contact Page
-<img width='100%' src='https://github.com/Aniruddha-Gade/Study-Notion-EdTech__MERN-Stack/blob/main/screenshots/contact.png' />
-
-# Forgot passwornd
-<img width='100%' src='https://github.com/Aniruddha-Gade/Study-Notion-EdTech__MERN-Stack/blob/main/screenshots/forgot%20pass.png' />
-
-# Dashboard
-<img width='100%' src='https://github.com/Aniruddha-Gade/Study-Notion-EdTech__MERN-Stack/blob/main/screenshots/dashboard.png' />
-
-# Edit Profile
-<img width='100%' src='https://github.com/Aniruddha-Gade/Study-Notion-EdTech__MERN-Stack/blob/main/screenshots/edit%20profile.png' />
-
-
-# Add Course
-<img width='100%' src='https://github.com/Aniruddha-Gade/Study-Notion-EdTech__MERN-Stack/blob/main/screenshots/add%20course.png' />
-
-# Edit Course
-<img width='100%' src='https://github.com/Aniruddha-Gade/Study-Notion-EdTech__MERN-Stack/blob/main/screenshots/edit%20course.png' />
-
-# Course Details 1
-<img width='100%' src='https://github.com/Aniruddha-Gade/Study-Notion-EdTech__MERN-Stack/blob/main/screenshots/course%20details1.png' />
-
-# Course Details 2
-<img width='100%' src='https://github.com/Aniruddha-Gade/Study-Notion-EdTech__MERN-Stack/blob/main/screenshots/course%20details2.png' />
-
-# Add Review
-<img width='100%' src='https://github.com/Aniruddha-Gade/Study-Notion-EdTech__MERN-Stack/blob/main/screenshots/add%20review.png' />
-
-# Cart1
-<img width='100%' src='https://github.com/Aniruddha-Gade/Study-Notion-EdTech__MERN-Stack/blob/main/screenshots/cart1.png' />
-
-
-
-
-# Enrolled Courses 1
-<img width='100%' src='https://github.com/Aniruddha-Gade/Study-Notion-EdTech__MERN-Stack/blob/main/screenshots/enrolled%20courses1.png' />
-
-# Enrolled Courses 2
-<img width='100%' src='https://github.com/Aniruddha-Gade/Study-Notion-EdTech__MERN-Stack/blob/main/screenshots/enrolled%20courses2.png' />
-
-# Instructor Data 1
-<img width='100%' src='https://github.com/Aniruddha-Gade/Study-Notion-EdTech__MERN-Stack/blob/main/screenshots/instrctor%20data1.png' />
-
-# Instructor Data 2
-<img width='100%' src='https://github.com/Aniruddha-Gade/Study-Notion-EdTech__MERN-Stack/blob/main/screenshots/instrctor%20data2.png' />
-
-# My Courses 1
-<img width='100%' src='https://github.com/Aniruddha-Gade/Study-Notion-EdTech__MERN-Stack/blob/main/screenshots/myCourses1.png' />
-
-# My Courses 2
-<img width='100%' src='https://github.com/Aniruddha-Gade/Study-Notion-EdTech__MERN-Stack/blob/main/screenshots/myCourses2.png' />
-
-# View Courses 1
-<img width='100%' src='https://github.com/Aniruddha-Gade/Study-Notion-EdTech__MERN-Stack/blob/main/screenshots/view%20course1.png' />
-
-# View Courses 2
-<img width='100%' src='https://github.com/Aniruddha-Gade/Study-Notion-EdTech__MERN-Stack/blob/main/screenshots/view%20course2.png' />
-
-
-# Delete Account
-<img width='100%' src='https://github.com/Aniruddha-Gade/Study-Notion-EdTech__MERN-Stack/blob/main/screenshots/delete%20account.png' />
-
-# Footer
-<img width='100%' src='https://github.com/Aniruddha-Gade/Study-Notion-EdTech__MERN-Stack/blob/main/screenshots/footer.png' />
-
-
-
-
-
-
-
-
-
-
-
-
-
- 
+# 2. Set working directory
+WORKDIR /app
+
+# 3. Permissions: Create permission for the 'node' user to own this folder
+RUN chown -R node:node /app
+
+# 4. Security: SWITCH USER. OpenShift blocks 'root' users by default.
+USER node
+
+# 5. Caching: Copy package.json first to utilize Docker Layer Caching
+COPY --chown=node:node package*.json ./
+
+# 6. GreenOps: Install only production dependencies to save space
+RUN npm ci --only=production
+
+# 7. Copy Source Code
+COPY --chown=node:node . .
+
+# 8. Expose Port
+EXPOSE 4000
+
+# 9. Start Command
+CMD ["npm", "start"]
+```
+
+### **B. Frontend Dockerfile**
+
+**File:** `frontend/Dockerfile`
+**Key Feature:** Multi-Stage Build & Nginx Optimization.
+
+```dockerfile
+# --- STAGE 1: BUILDER ---
+FROM node:18-alpine as build
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci
+COPY . .
+# Compiles React code into static HTML/CSS/JS in 'dist' folder
+RUN npm run build
+
+# --- STAGE 2: RUNNER ---
+# Use unprivileged Nginx (Runs as non-root for OpenShift security)
+FROM nginxinc/nginx-unprivileged:alpine
+
+# Copy ONLY the built files from Stage 1 (Discards node_modules, saving huge space)
+COPY --from=build /app/dist /usr/share/nginx/html
+
+# Open port 8080 (Standard for unprivileged Nginx)
+EXPOSE 8080
+
+# Start Nginx
+CMD ["nginx", "-g", "daemon off;"]
+```
+
+### **C. AIOps Agent Dockerfile**
+
+**File:** `aiops/Dockerfile`
+A lightweight Python container to run the anomaly detection script.
+
+```dockerfile
+FROM python:3.9-slim
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+COPY monitor.py .
+CMD ["python", "-u", "monitor.py"]
+```
+
+-----
+
+## **5. Cloud Orchestration (OpenShift/Kubernetes)**
+
+**Objective:** Manage deployment, scaling, self-healing, and networking.
+
+### **A. Backend Deployment**
+
+**File:** `openshift/backend.yaml`
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: studynotion-backend
+spec:
+  replicas: 2  # High Availability: 2 copies ensure zero downtime during crashes
+  selector:
+    matchLabels:
+      app: studynotion-backend
+  template:
+    metadata:
+      labels:
+        app: studynotion-backend
+    spec:
+      containers:
+      - name: backend
+        image: shibilbasithcp/studynotion-backend:latest
+        ports:
+        - containerPort: 4000
+        
+        # SECRETS INJECTION:
+        # Automatically loads MONGODB_URL, JWT_SECRET, etc.
+        envFrom:
+        - secretRef:
+            name: backend-secrets
+            
+        # GREENOPS (Carbon Budget):
+        # Strict limits prevent "zombie" processes from wasting energy
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+```
+
+### **B. Routes (Public Networking)**
+
+**File:** `openshift/frontend.yaml` & `openshift/backend.yaml`
+We used OpenShift **Routes** to expose the services to the internet via HTTPS.
+
+```yaml
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: studynotion-frontend-route
+spec:
+  to:
+    kind: Service
+    name: frontend-service
+  port:
+    targetPort: 8080
+  tls:
+    termination: edge # Handles SSL/HTTPS automatically
+```
+
+-----
+
+## **6. GreenOps (Sustainability Engineering)**
+
+**Objective:** Reduce the carbon footprint of the software lifecycle.
+
+1.  **Alpine Base Images:** Reduced container sizes significantly, lowering bandwidth usage and storage electricity costs.
+2.  **Resource Requests/Limits:** Implemented a "Carbon Budget" in YAML files to ensure no pod consumes more CPU cycles than necessary.
+3.  **Horizontal Pod Autoscaler (HPA):**
+      * **File:** `openshift/hpa.yaml`
+      * **Logic:** Automatically scales the backend down to **1 Pod** during idle times (nights/weekends) and scales up only when CPU usage hits 70%.
+
+-----
+
+## **7. AIOps (Artificial Intelligence for Operations)**
+
+**Objective:** Automated system health monitoring using Machine Learning.
+
+**File:** `aiops/monitor.py`
+
+  * **Technology:** Python, Scikit-Learn.
+  * **Algorithm:** `IsolationForest` (Unsupervised Anomaly Detection).
+  * **Workflow:**
+    1.  The agent runs inside the cluster.
+    2.  It continuously pings the Backend API to measure latency.
+    3.  It trains a model on the last 50 data points in real-time.
+    4.  If a request takes unusually long (statistical anomaly), it logs: `⚠️ [ANOMALY DETECTED]`.
+
+-----
+
+## **8. CI/CD Pipeline (GitHub Actions)**
+
+**Objective:** Automate the Build, Test, and Deploy process.
+
+**File:** `.github/workflows/openshift-deploy.yml`
+
+  * **Trigger:** Push to `main`.
+  * **Jobs:**
+    1.  **Checkout:** Get code.
+    2.  **Docker Build:** Build Backend, Frontend, and AIOps images.
+    3.  **Docker Push:** Push images to Docker Hub registry.
+    4.  **OpenShift Login:** Authenticate using `oc` CLI.
+    5.  **Deploy:** Run `oc apply -f openshift/` to update the cluster.
+    6.  **Rollout:** Force restart pods to pull the new images.
+
+-----
+
+## **9. Frontend API Configuration (Vite)**
+
+**Objective:** Connect the static React frontend to the dynamic Backend API.
+
+**File:** `frontend/src/services/apis.js`
+We updated the API configuration to point to the live OpenShift Backend Route instead of localhost.
+
+```javascript
+// Hardcoded to the OpenShift Backend Route for stability
+const BASE_URL = "https://studynotion-backend-route-shibilbasithcp-dev.apps.rm2.thpm.p1.openshiftapps.com/api/v1";
+
+// API Endpoints
+export const endpoints = {
+  LOGIN_API: BASE_URL + "/auth/login",
+  SIGNUP_API: BASE_URL + "/auth/signup",
+  // ...
+}
+```
+
+-----
+
+## **10. Secrets Management**
+
+**Objective:** Zero-trust security for sensitive credentials.
+
+  * **Method:** `.env` files are ignored by Git.
+  * **Injection:** Secrets were uploaded directly to the OpenShift cluster using the CLI.
+      * `oc create secret generic backend-secrets --from-env-file=backend/.env`
+  * **Variables Stored:** `MONGODB_URL`, `JWT_SECRET`, `CLOUD_NAME`, `RAZORPAY_KEY`, `MAIL_PASS`.
